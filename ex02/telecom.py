@@ -14,6 +14,7 @@ class Command(Enum):
     LOADED_INVALID = 'loaded_invalid'
     MOVE = 'move'
     MOVED = 'moved'
+    INVALID = 'invalid'
 
 
 class Telecom(object):
