@@ -41,13 +41,29 @@ class Transmitter(RobotComponent, Exchanger):
         return method(tc)
 
     def on_READY_FOR_LOADING(self, tc: Telecom) -> Telecom:
-        pass
+        if self.robot.is_moving():
+            return Telecom(command=Command.MOVING)
+        return Telecom(command=tc.command)
 
     def on_LOADING(self, tc: Telecom) -> Telecom:
-        pass
+        if self.robot.is_moving():
+            return Telecom(command=Command.MOVING)
+
+        if not tc.payload:
+            return Telecom(command=Command.LOADED_INVALID, errors=['no payload'])
+
+        try:
+            self.robot.load_positions(tc.payload)
+            return Telecom(command=Command.LOADED_OK)
+        except Exception as e:
+            return Telecom(command=Command.LOADED_INVALID, errors=[str(e)])
 
     def on_MOVE(self, tc: Telecom) -> Telecom:
-        pass
+        try:
+            self.robot.run()
+            return Telecom(command=Command.MOVED)
+        except Exception as e:
+            return Telecom(command=Command.INVALID, errors=[str(e)])
 
 class Wheel:
 
