@@ -77,7 +77,7 @@ class Point:
         if isinstance(other, tuple):
             other = Point.new(other)
         if isinstance(other, Point):
-            r = self.x == other.x and self.y == other.y
+            r = isclose(self.x, other.x, abs_tol=1e-9) and isclose(self.y, other.y, abs_tol=1e-9)
         return r
 
     def __repr__(self):
@@ -95,8 +95,10 @@ class Line:
         self.vector = vector.normalize()
 
     def contains(self, point: Point):
-        # TO BE DONE
-        pass
+        a = self.point
+        b = point
+        v_ab = Point(a.x - b.x, a.y - b.y)
+        return v_ab.is_collinear(self.vector)
 
     def intersection(self, line: 'Line') -> 'Point':
         """
