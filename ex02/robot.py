@@ -1,7 +1,8 @@
+import inspect
 import math
 
 from ex02.motion import Translation, Rotation
-from ex02.telecom import Telecom, Exchanger
+from ex02.telecom import Telecom, Exchanger, Command
 from typing import List
 
 
@@ -25,8 +26,27 @@ class Transmitter(RobotComponent, Exchanger):
     """
     Transmitter Class
     """
+    def __init__(self):
+        super().__init__()
+        self._handlers = {
+            'READY_FOR_LOADING': getattr(self, 'on_READY_FOR_LOADING'),
+            'LOADING': getattr(self, 'on_LOADING'),
+            'MOVE': getattr(self, 'on_MOVE')
+
+        }
 
     def exchange(self, tc: Telecom) -> Telecom:
+        cmd = tc.command
+        method = self._handlers[cmd.name]
+        return method(tc)
+
+    def on_READY_FOR_LOADING(self, tc: Telecom) -> Telecom:
+        pass
+
+    def on_LOADING(self, tc: Telecom) -> Telecom:
+        pass
+
+    def on_MOVE(self, tc: Telecom) -> Telecom:
         pass
 
 class Wheel:
@@ -113,8 +133,15 @@ class Robot(Exchanger):
         self.motion_controller = motion_controller
         self.navigator = navigator
         self.energy_supplier = energy_supplier
+        self._register_components()
         self.status = None
         self.motions = []
+
+    def _register_components(self):
+        self.transmitter.register(self)
+        self.motion_controller.register(self)
+        self.navigator.register(self)
+        self.energy_supplier.register(self)
 
     def exchange(self, tc: Telecom) -> Telecom:
         return self.transmitter.exchange(tc)
