@@ -129,6 +129,100 @@ class Line:
     def __repr__(self):
         return f'line({self.point}, {self.vector})'
 
+class Arc:
+    INDIRECT = "indirect"
+    DIRECT = "direct"
+
+    def __init__(self, start: Point, end: Point, start_tangent: Point, end_tangent: Point = None):
+        self.start = start
+        self.end = end
+        if end_tangent is None:
+            end_tangent = Geometry.get_symmetrical(start_tangent, (start - end))
+
+        self.start_tangent = start_tangent
+        self.end_tangent = end_tangent
+
+        self.center = Arc.compute_center_from_both_tangents(start, end, start_tangent, end_tangent)
+        self.check_center_and_tangents_coherence()
+
+        self.radius = Point.distance(self.center, self.start)
+        distance = Point.distance(start, end)
+        if distance:
+            self.angle = 2 * asin(distance / (2 * self.radius))
+        else:
+            self.angle = acos(start_tangent.scalar_product(end_tangent))
+
+        self.direction = Arc.compute_direction(self)
+        if self.direction is Arc.INDIRECT:
+            self.angle = self.angle - 2*pi
+        self.length = self.angle * pi * self.radius
+
+
+    @staticmethod
+    def compute_center_from_both_tangents(p0, p1, tangent_p0, tangent_p1):
+        try:
+            center = Arc.compute_intersection_with_each_tangent(p0, p1, tangent_p0, tangent_p1)
+        except ValueError:
+            center = Point((p1.x + p0.x) / 2, (p1.y + p0.y) / 2)
+
+        assert isclose(Point.distance(p0, center), Point.distance(p1, center))
+        return center
+
+    @staticmethod
+    def compute_intersection_with_each_tangent(p0, p1, tangent_p0, tangent_p1):
+        """
+        Computes center from both tangents, from the fist point and the second point.
+        :param p0: Point the first point of the Arc
+        :param p1: Point  the second point of the Arc
+        :param tangent_p0: Point the tangent vector of first point of the Arc
+        :param tangent_p1: Point the tangent vector of 2nd point of the Arc
+        :return: intersection of normal lines to vectors, aka the center
+        """
+        radial_p0 = tangent_p0.normal()
+        radial_p1 = tangent_p1.normal()
+        line_p0 = Line(p0, radial_p0)
+        line_p1 = Line(p1, radial_p1)
+        center = line_p0.intersection(line_p1)
+        d0 = Point.distance(p0, center)
+        d1 = Point.distance(p1, center)
+        return center
+
+    @staticmethod
+    def find_angle_and_chord_vector(start, end, tangent):
+        a = start
+        b = end
+        v = tangent
+
+        distance = Point.distance(a, b)
+        u = Point(b.x - a.x, b.y - a.y)
+        u = u.normalize(distance)
+        v = v.normalize()
+        angle = acos(u.scalar_product(v))
+        sign = u.x * v.y + u.y * v.x
+        angle = 2 * angle * sign
+
+        return angle, u, distance
+
+    def check_center_and_tangents_coherence(self):
+        """
+        Tangents have to turn in the same direction from the center.
+        :return:
+        """
+        v_start = (self.start -self.center).vectorial_product(self.start_tangent)
+        v_end = (self.end -self.center).vectorial_product(self.end_tangent)
+        if not isclose(v_start, v_end):
+            raise ValueError()
+
+    @staticmethod
+    def compute_direction(arc: 'Arc'):
+        v = (arc.center - arc.start).vectorial_product(arc.start_tangent)
+        if v > 0:
+            return Arc.INDIRECT
+        return Arc.DIRECT
+
+
+
+
 class Geometry:
 
     @staticmethod

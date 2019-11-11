@@ -1,6 +1,7 @@
 import inspect
 import math
 
+from ex02.geometry import Arc
 from ex02.motion import Translation, Rotation
 from ex02.telecom import Telecom, Exchanger, Command
 from typing import List
@@ -85,6 +86,21 @@ class EnergySupplier(RobotComponent):
 
 
 class MotionController(RobotComponent):
+    CONSUMPTION_PER_LENGTH_UNIT = 1
+    DEFAULT_WHEEL_AXIS_LENGTH = 1
+    DEFAULT_TIME_STEP = 0.1
+    DEFAULT_SPEED = 0.1
+
+    def __init__(self, right_wheel: Wheel, left_wheel: Wheel, configuration):
+        self.right_wheel = right_wheel
+        self.left_wheel = left_wheel
+
+        self.speed = configuration.get('speed', MotionController.DEFAULT_SPEED)
+        self.time_step = configuration.get('time_step', MotionController.DEFAULT_TIME_STEP)
+        self.consumption_per_length_unit = configuration.get('consumption_per_length_unit',
+                                                             MotionController.CONSUMPTION_PER_LENGTH_UNIT)
+        self.configuration = configuration
+        super().__init__()
 
     def run_translation(self, translation: 'Translation', energy_supplier: 'EnergySupplier'):
         """
@@ -93,7 +109,14 @@ class MotionController(RobotComponent):
         :param energy_supplier: EnergySupplier to supply energy for translation
         :return:
         """
-        pass
+        length = translation.length
+        steps, length_step, duration = self._compute_step_param(length)
+        consumption_per_step = self.get_required_energy_for(length_step)
+
+        for s in range(steps):
+            self.right_wheel.run(length_step)
+            self.left_wheel.run(length_step)
+            energy_supplier.consume(2 * consumption_per_step)
 
     def run_rotation(self, rotation: 'Rotation', energy_supplier: 'EnergySupplier'):
         """
@@ -102,13 +125,69 @@ class MotionController(RobotComponent):
         :param energy_supplier:
         :return:
         """
-        pass
+        wheel_axis = self.configuration.get('wheel_axis_length', MotionController.DEFAULT_WHEEL_AXIS_LENGTH)
+
+        if rotation.is_on_the_spot():
+            self._run_rotation_on_spot(rotation, wheel_axis, energy_supplier)
+        else:
+            self._run_rotation_on_center(rotation, wheel_axis, energy_supplier)
+
+    def _compute_step_param(self, length):
+        duration = length / self.speed
+        steps = math.floor(duration / self.time_step)
+        length_step = length / steps
+        return steps, length_step, duration
 
     def move(self, motion, energy_supplier):
-        pass
+        if isinstance(motion, Translation):
+            self.run_translation(motion, energy_supplier)
+        elif isinstance(motion, Rotation):
+            self.run_rotation(motion, energy_supplier)
+        else:
+            raise ValueError(f"Motion {motion} can not be understood")
+
+    def _run_rotation_on_spot(self, rotation, wheel_axis, energy_supplier):
+        angle = rotation.arc.angle
+        length = angle * wheel_axis / 2
+        steps, length_step, duration = self._compute_step_param(length)
+        consumption_per_step = self.get_required_energy_for(length_step)
+
+        for s in range(steps):
+            self.right_wheel.run(length_step)
+            self.left_wheel.run(-length_step)
+            energy_supplier.consume(2 * consumption_per_step)
+
+    def _run_rotation_on_center(self, rotation, wheel_axis, energy_supplier):
+        angle = rotation.arc.angle
+        radius = rotation.arc.radius
+
+        big_radius = (radius + wheel_axis / 2)
+        sho_radius = (radius - wheel_axis / 2)
+
+        big_length = big_radius * angle
+
+        ratio = sho_radius / big_radius
+
+        steps, length_step, duration = self._compute_step_param(big_length)
+
+        right_len_step = length_step
+        left_len_step = length_step
+
+        if rotation.arc.direction == Arc.DIRECT:
+            left_len_step = ratio * length_step
+        else:
+            right_len_step = ratio * length_step
+
+        consumption_per_step = self.get_required_energy_for(left_len_step) \
+                               + self.get_required_energy_for(right_len_step)
+
+        for s in range(steps):
+            self.right_wheel.run(right_len_step)
+            self.left_wheel.run(left_len_step)
+            energy_supplier.consume(consumption_per_step)
 
     def get_required_energy_for(self, length: float):
-        pass
+        return self.consumption_per_length_unit * length
 
 
 class Navigator(RobotComponent):
