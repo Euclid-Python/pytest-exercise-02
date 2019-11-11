@@ -133,7 +133,7 @@ class MotionController(RobotComponent):
             self._run_rotation_on_center(rotation, wheel_axis, energy_supplier)
 
     def _compute_step_param(self, length):
-        duration = length / self.speed
+        duration = math.fabs(length) / self.speed
         steps = math.floor(duration / self.time_step)
         length_step = length / steps
         return steps, length_step, duration
@@ -164,7 +164,7 @@ class MotionController(RobotComponent):
         big_radius = (radius + wheel_axis / 2)
         sho_radius = (radius - wheel_axis / 2)
 
-        big_length = big_radius * angle
+        big_length = math.fabs(big_radius * angle)
 
         ratio = sho_radius / big_radius
 

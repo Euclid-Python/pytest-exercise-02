@@ -1,3 +1,4 @@
+import math
 from math import cos, sin, acos, asin, sqrt, isclose, fabs, pi
 
 """"
@@ -155,7 +156,7 @@ class Arc:
         self.direction = Arc.compute_direction(self)
         if self.direction is Arc.INDIRECT:
             self.angle = self.angle - 2*pi
-        self.length = self.angle * pi * self.radius
+        self.length = math.fabs(self.angle * pi * self.radius)
 
 
     @staticmethod
